@@ -9,8 +9,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <!-- Font Awesome for modern icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <!-- jsqr library for QR code scanning -->
-    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -68,11 +66,6 @@
         .detail-value {
             word-break: break-word; /* Ensures long domains wrap */
         }
-        #qrisResultOutput {
-            min-height: 80px;
-            background-color: #e2f0e2;
-            border: 1px dashed #4CAF50;
-        }
     </style>
 </head>
 <body>
@@ -82,24 +75,6 @@
             <i class="fas fa-rocket mr-4"></i> V2Ray Super Generator
         </h1>
         <p class="text-center text-gray-700 mb-8 font-semibold">Ubah konfigurasi JSON Anda menjadi URI VLESS/Trojan yang indah dan terperinci.</p>
-
-        <!-- QRIS Input Area -->
-        <div class="mb-8 p-6 bg-yellow-50/70 border-2 border-yellow-300 rounded-2xl shadow-inner">
-            <label class="block text-xl font-extrabold text-gray-800 mb-3">
-                <i class="fas fa-qrcode mr-2 text-yellow-600"></i> Pindai QR Code
-            </label>
-            <input type="file" id="qrisFileInput" accept="image/*" onchange="handleQrisImage(event)" 
-                   class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-yellow-100 file:text-yellow-700 hover:file:bg-yellow-200"/>
-            <p class="text-sm text-gray-500 mt-2">Unggah gambar QR Code (seperti QRIS, atau V2Ray Subscription QR) untuk memindai kontennya.</p>
-            
-            <div class="mt-4">
-                <h4 class="text-md font-semibold text-gray-700 mb-1">Hasil Teks QR:</h4>
-                <textarea id="qrisResultOutput" readonly class="w-full p-3 rounded-lg text-sm font-mono text-green-800"></textarea>
-                <button id="copyQrisBtn" onclick="copyQrisResult()" class="mt-2 w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-xl transition duration-150 shadow-md hidden">
-                    <i class="fas fa-copy mr-2"></i> Salin Hasil QR
-                </button>
-            </div>
-        </div>
 
         <!-- JSON Input Area -->
         <div class="mb-8">
@@ -133,21 +108,26 @@
                     <!-- Dynamic VLESS and Trojan cards will be inserted here -->
                     <p class="text-center text-gray-500 p-8">Tekan tombol 'Konversi Sekarang' untuk melihat hasil.</p>
                 </div>
-                <div class="mt-5">
-                    <button onclick="copyAllUris('all')"
-                        class="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-4 rounded-2xl transition duration-150 shadow-lg text-lg">
-                        <i class="fas fa-copy mr-2"></i> Salin SEMUA URI
+
+                <div class="mt-5 flex flex-col sm:flex-row gap-4">
+                    <button onclick="copyDetailedUris()"
+                        class="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-4 rounded-2xl transition duration-150 shadow-lg text-lg">
+                        <i class="fas fa-file-alt mr-2"></i> Salin DETAIL (Teks Rapi)
+                    </button>
+                    <button onclick="copySimpleUris()"
+                        class="flex-1 bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-3 px-4 rounded-2xl transition duration-150 shadow-lg text-lg">
+                        <i class="fas fa-link mr-2"></i> Salin URI Saja (Mentah)
                     </button>
                 </div>
-                <!-- Hidden textarea to hold raw URIs for "Copy All" functionality -->
-                <textarea id="allRawUris" class="hidden"></textarea>
+                
+                <!-- Hidden textarea to hold ALL Detailed plain text URIs for "Copy All Detail" functionality -->
+                <textarea id="allDetailedRawUris" class="hidden"></textarea>
+                <!-- Hidden textarea to hold ALL simple URI list for "Copy All Simple" functionality -->
+                <textarea id="allSimpleRawUris" class="hidden"></textarea>
             </div>
         </div>
     </div>
     
-    <!-- Canvas for QR scanning (Hidden) -->
-    <canvas id="qrCanvas" class="hidden"></canvas>
-
     <script>
         // --- Utility Functions ---
 
@@ -179,80 +159,7 @@
             }
         }
 
-        // --- QR Code Scanner Logic ---
-
-        function copyQrisResult() {
-            const output = document.getElementById('qrisResultOutput');
-            if (!output.value) {
-                showMessage("Tidak ada hasil QR untuk disalin.", 'error');
-                return;
-            }
-            try {
-                const tempTextArea = document.createElement('textarea');
-                tempTextArea.value = output.value;
-                document.body.appendChild(tempTextArea);
-                tempTextArea.select();
-                document.execCommand('copy');
-                document.body.removeChild(tempTextArea);
-                showMessage("Hasil QR Code berhasil disalin!", 'success');
-            } catch (err) {
-                showMessage("Gagal menyalin hasil QR.", 'error');
-            }
-        }
-
-        function handleQrisImage(event) {
-            const file = event.target.files[0];
-            const output = document.getElementById('qrisResultOutput');
-            const copyBtn = document.getElementById('copyQrisBtn');
-            output.value = "Memproses gambar...";
-            copyBtn.classList.add('hidden');
-
-            if (!file) {
-                output.value = "";
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const img = new Image();
-                img.onload = () => {
-                    scanQrisFromImage(img);
-                };
-                img.src = e.target.result;
-            };
-            reader.readAsDataURL(file);
-        }
-
-        function scanQrisFromImage(img) {
-            const canvas = document.getElementById('qrCanvas');
-            const ctx = canvas.getContext('2d');
-            const output = document.getElementById('qrisResultOutput');
-            const copyBtn = document.getElementById('copyQrisBtn');
-
-            // Set canvas size to match image size
-            canvas.width = img.width;
-            canvas.height = img.height;
-            ctx.drawImage(img, 0, 0, img.width, img.height);
-
-            // Get image data
-            const imageData = ctx.getImageData(0, 0, img.width, img.height);
-            
-            // Scan for QR code using jsqr
-            const code = jsQR(imageData.data, imageData.width, imageData.height);
-
-            if (code) {
-                output.value = code.data;
-                copyBtn.classList.remove('hidden');
-                showMessage("QR Code berhasil dipindai!", 'success');
-            } else {
-                output.value = "Tidak ditemukan kode QR yang valid dalam gambar.";
-                copyBtn.classList.add('hidden');
-                showMessage("Gagal memindai QR Code.", 'error');
-            }
-        }
-
-
-        // --- V2Ray URI Converter Logic (Maintained from previous, fixed version) ---
+        // --- V2Ray URI Converter Logic ---
 
         // Function to copy a single URI (passed as base64 encoded string)
         function copySingleUri(b64Uri) {
@@ -279,26 +186,90 @@
             }
         }
 
-        // Function to copy all URIs
-        function copyAllUris(protocol) {
-            const elementId = `allRawUris`;
+        // Universal Copy Handler
+        function copyTextFromHiddenArea(elementId) {
             const textarea = document.getElementById(elementId);
             
             if (!textarea.value || textarea.value.trim() === '') {
                 showMessage(`Tidak ada URI untuk disalin. Harap konversi terlebih dahulu.`, 'error');
-                return;
+                return false;
             }
             
             try {
+                // Temporarily expose the element using position trick
+                const originalClass = textarea.className;
+                
+                textarea.classList.remove('hidden');
+                textarea.style.position = 'absolute';
+                textarea.style.left = '-9999px';
+                textarea.style.opacity = '0';
+                
                 textarea.select();
                 textarea.setSelectionRange(0, 99999); 
+                
                 document.execCommand('copy');
-                showMessage(`Semua URI berhasil disalin ke clipboard!`, 'success');
+                
+                // Restore original state
+                textarea.style.position = '';
+                textarea.style.left = '';
+                textarea.style.opacity = '';
+                textarea.className = originalClass;
+
+                showMessage(`Semua data berhasil disalin ke clipboard!`, 'success');
+                return true;
             } catch (err) {
-                showMessage("Gagal menyalin semua URI. Silakan coba salin satu per satu.", 'error');
+                showMessage("Gagal menyalin. Silakan coba salin satu per satu.", 'error');
                 console.error('Copy all URIs failed:', err);
+                return false;
             }
         }
+
+        // New function for copying Detailed (Rapi) text
+        function copyDetailedUris() {
+            copyTextFromHiddenArea('allDetailedRawUris');
+        }
+
+        // New function for copying Simple (Mentah) URI list
+        function copySimpleUris() {
+            copyTextFromHiddenArea('allSimpleRawUris');
+        }
+
+        // Placeholder for legacy copyAllUris (mapped to Detailed)
+        function copyAllUris(protocol) {
+            copyDetailedUris();
+        }
+
+        // Function to create structured text output for bulk copy
+        function createDetailedTextBlock(index, uri, details) {
+            // Helper function to handle non-JSON text escaping for clean text display
+            const escapeText = (text) => String(text).replace(/\n/g, ' ');
+
+            const proto = details.Protocol;
+            const sec = details.Security;
+            const net = details.Network;
+            
+            let text = `==========================================================\n`;
+            text += `[${index}] REMARKS: ${escapeText(details.Remarks)}\n`;
+            text += `----------------------------------------------------------\n`;
+            text += `  Protokol: ${proto}\n`;
+            text += `  Alamat  : ${details.Address}:${details.Port}\n`;
+            text += `  Keamanan: ${sec}\n`;
+            text += `  Jaringan: ${net}\n`;
+
+            if (net === 'WS') {
+                text += `  Host    : ${escapeText(details.Host)}\n`;
+                text += `  Path    : ${escapeText(details.Path)}\n`;
+            }
+            if (sec !== 'NONE' && details.SNI !== 'N/A') {
+                text += `  SNI     : ${escapeText(details.SNI)}\n`;
+                text += `  Fingerp.: ${escapeText(details.Fingerprint)}\n`;
+            }
+            
+            text += `\n  URI LENGKAP:\n${uri}\n`;
+            text += `==========================================================`;
+            return text;
+        }
+
 
         // Function to extract details and encode URI for a single outbound object
         function getV2rayUri(config, outbound, remarks, outboundTag = null) {
@@ -476,12 +447,14 @@
 
         // Main conversion function
         function convertJsonToV2ray() {
-            const jsonInput = document.getElementById('jsonInput').value;
+            const jsonInput = document.getElementById('jsonInput').value.trim(); // Trim input
             const allContainer = document.getElementById('allOutputContainer');
-            const allRaw = document.getElementById('allRawUris');
+            const allDetailedRawUris = document.getElementById('allDetailedRawUris');
+            const allSimpleRawUris = document.getElementById('allSimpleRawUris');
 
             allContainer.innerHTML = '';
-            allRaw.value = '';
+            allDetailedRawUris.value = '';
+            allSimpleRawUris.value = '';
             document.getElementById('messageBox').classList.add('hidden');
 
             if (!jsonInput.trim()) {
@@ -489,17 +462,32 @@
                 allContainer.innerHTML = '<p class="text-center text-gray-500 p-8">Input JSON kosong.</p>';
                 return;
             }
+            
+            // Check if input looks like a URI/URL
+            if (jsonInput.toLowerCase().startsWith('http://') || 
+                jsonInput.toLowerCase().startsWith('https://') ||
+                jsonInput.toLowerCase().startsWith('vless://') ||
+                jsonInput.toLowerCase().startsWith('trojan://')) {
+                
+                const errorMessage = "Error Parsing JSON: Input yang dimasukkan terlihat seperti V2Ray URI/URL. Harap masukkan *array JSON* konfigurasi V2Ray (dimulai dengan `[` dan diakhiri dengan `]`).";
+                showMessage(errorMessage, 'error');
+                allContainer.innerHTML = `<p class="text-center text-gray-500 p-8">${errorMessage}</p>`;
+                console.error("JSON Parsing Error: Input is likely a URL, not JSON array.");
+                return;
+            }
 
             try {
                 const configArray = JSON.parse(jsonInput);
                 if (!Array.isArray(configArray)) {
-                    showMessage("Input JSON harus berupa array (`[...]`).", 'error');
-                    allContainer.innerHTML = '<p class="text-center text-gray-500 p-8">Input JSON harus berupa array.</p>';
+                    const errorMessage = "Input JSON harus berupa array (`[...]`).";
+                    showMessage(errorMessage, 'error');
+                    allContainer.innerHTML = `<p class="text-center text-gray-500 p-8">${errorMessage}</p>`;
                     return;
                 }
 
                 let allHtml = '';
-                let allRawList = [];
+                let detailedRawList = []; // Stores detailed blocks
+                let simpleRawList = [];   // Stores URI only
                 let allCount = 0;
 
                 configArray.forEach((config) => {
@@ -533,13 +521,17 @@
                         const { uri, details } = result;
                         allCount++;
                         allHtml += createFormattedBlock(allCount, uri, details);
-                        allRawList.push(uri);
+                        
+                        // Populate both raw lists
+                        detailedRawList.push(createDetailedTextBlock(allCount, uri, details));
+                        simpleRawList.push(uri);
                     });
                 });
 
-                // Update Containers and Raw URI list
+                // Update Containers and Raw URI lists
                 allContainer.innerHTML = allHtml || '<p class="text-center text-gray-500 p-8">Tidak ditemukan konfigurasi VLESS atau Trojan yang valid.</p>';
-                allRaw.value = allRawList.join('\n');
+                allDetailedRawUris.value = detailedRawList.join('\n\n'); // Detailed blocks separated by double newline
+                allSimpleRawUris.value = simpleRawList.join('\n'); // Raw URIs separated by single newline
 
                 if (allCount > 0) {
                     showMessage(`Konversi berhasil! Ditemukan ${allCount} URI (VLESS & Trojan).`, 'success');
@@ -548,8 +540,10 @@
                 }
 
             } catch (e) {
-                showMessage(`Error Parsing JSON: ${e.message}. Pastikan format JSON sudah benar.`, 'error');
+                // Generic JSON parsing failure catch-all
+                showMessage(`Error Parsing JSON: ${e.message}. Pastikan format JSON sudah benar (misalnya, periksa tanda kurung kurawal/siku dan koma).`, 'error');
                 console.error("JSON Parsing Error:", e);
+                allContainer.innerHTML = `<p class="text-center text-gray-500 p-8">Error: Periksa format JSON Anda. (${e.message})</p>`;
             }
         }
     </script>
