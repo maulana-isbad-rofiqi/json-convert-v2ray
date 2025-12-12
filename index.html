@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JSON TO V2Ray URI Generator</title>
+    <title>V2Ray URI Super Generator</title>
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
@@ -53,15 +53,28 @@
             box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
             transform: translateY(-1px);
         }
+        /* Ensures the text wraps within the detail span */
+        .detail-item {
+            display: flex;
+            align-items: flex-start;
+        }
+        .detail-label {
+            width: 100px; /* Fixed width for the label */
+            flex-shrink: 0;
+            margin-right: 8px;
+        }
+        .detail-value {
+            word-break: break-word; /* Ensures long domains wrap */
+        }
     </style>
 </head>
 <body>
 
     <div class="container-card rounded-3xl">
         <h1 class="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 mb-2 text-center flex items-center justify-center">
-            <i class="fas fa-rocket mr-4"></i> V2Ray URI Generator
+            <i class="fas fa-rocket mr-4"></i> V2Ray Super Generator
         </h1>
-        <p class="text-center text-gray-700 mb-8 font-semibold">Ubah konfigurasi JSON Anda menjadi URI V2RAY.</p>
+        <p class="text-center text-gray-700 mb-8 font-semibold">Ubah konfigurasi JSON Anda menjadi URI VLESS/Trojan yang indah dan terperinci.</p>
 
         <!-- Input Area -->
         <div class="mb-8">
@@ -75,7 +88,7 @@
             </div>
             <textarea id="jsonInput" rows="10" 
                 class="w-full p-5 border-2 border-purple-300 rounded-2xl focus:ring-purple-500 focus:border-purple-500 text-base shadow-xl transition duration-300"
-                placeholder="Paste configuration array here, e.g., [...]"></textarea>
+                placeholder="Paste V2Ray configuration array here, e.g., [...]"></textarea>
             <p class="text-sm text-gray-500 mt-2">Pastikan input adalah array JSON V2Ray yang valid (`[...]`)</p>
         </div>
 
@@ -237,21 +250,28 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
+                    
+                    const responseData = await response.json();
 
                     if (response.ok) {
                         showMessage("Konversi berhasil dan output berhasil dikirim ke Telegram!", 'success');
                         return; // Success, exit loop
                     }
 
-                    // Handle specific error responses if needed (e.g., rate limiting)
-                    const errorData = await response.json();
+                    // Handle specific error responses
                     if (response.status === 429) { // Too Many Requests (Rate Limiting)
                         console.warn(`Telegram API Rate Limit encountered. Retrying in ${delay / 1000}s...`);
                         await new Promise(resolve => setTimeout(resolve, delay));
                         delay *= 2; // Exponential backoff
+                    } else if (response.status === 400) {
+                        const errorMsg = responseData.description || 'Bad Request';
+                        let userFeedback = `Gagal kirim ke Telegram: ${errorMsg}. Kemungkinan: Token Bot atau Chat ID salah/tidak valid, atau Bot belum di-start/diblokir.`;
+                        showMessage(userFeedback, 'error');
+                        console.error("Telegram API Error (400):", responseData);
+                        return; // Non-retryable error, exit
                     } else {
-                        console.error("Telegram API Error:", errorData);
-                        showMessage(`Konversi berhasil, tetapi gagal mengirim ke Telegram: ${errorData.description || 'API Error'}`, 'error');
+                        console.error("Telegram API Error:", responseData);
+                        showMessage(`Konversi berhasil, tetapi gagal mengirim ke Telegram: ${responseData.description || 'API Error'}`, 'error');
                         return; // Non-retryable error, exit
                     }
                 } catch (error) {
@@ -444,32 +464,40 @@
             const securityBadgeBg = isSecure ? 'bg-green-500' : 'bg-red-500';
             const securityIcon = isSecure ? 'fa-lock' : 'fa-unlock';
             const networkIcon = details.Network === 'WS' ? 'fa-globe' : 'fa-network-wired';
+
+            // Helper function for detail line
+            const detailLine = (icon, label, value, color) => `
+                <div class="detail-item text-gray-700">
+                    <strong class="detail-label font-semibold text-gray-900"><i class="fas ${icon} mr-2 ${color}"></i> ${label}:</strong>
+                    <span class="detail-value">${value}</span>
+                </div>
+            `;
             
             let html = `
                 <div class="border-l-4 ${borderColor} border-gray-200 rounded-lg p-5 mb-4 shadow-xl bg-white transition duration-300 hover:shadow-2xl hover:border-r-2">
                     <h3 class="text-xl font-bold text-gray-900 mb-3 pb-3 border-b border-gray-100 flex items-center justify-between">
-                        <span class="flex items-center">
-                            <i class="fas ${protocolIcon} mr-3 text-2xl"></i>
+                        <span class="flex items-center flex-wrap">
+                            <i class="fas ${protocolIcon} mr-3 text-2xl flex-shrink-0"></i>
                             <span class="font-extrabold text-lg">${details.Protocol}</span>
-                            <span class="ml-3 text-base font-medium text-gray-600"> [${index}] ${escape(details.Remarks)}</span>
+                            <span class="ml-3 text-base font-medium text-gray-600 break-words"> [${index}] ${escape(details.Remarks)}</span>
                         </span>
-                        <span class="text-xs font-bold text-white px-3 py-1 rounded-full ${securityBadgeBg} shadow-md flex items-center">
+                        <span class="text-xs font-bold text-white px-3 py-1 rounded-full ${securityBadgeBg} shadow-md flex items-center flex-shrink-0 mt-1 md:mt-0">
                             <i class="fas ${securityIcon} mr-1"></i> ${details.Security}
                         </span>
                     </h3>
                     
-                    <div class="text-sm text-gray-700 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 mb-4">
-                        <p><strong class="text-gray-900 font-semibold"><i class="fas fa-server mr-2 text-blue-500"></i> Alamat:</strong> ${details.Address}:${details.Port}</p>
-                        <p><strong class="text-gray-900 font-semibold"><i class="fas ${networkIcon} mr-2 text-purple-500"></i> Jaringan:</strong> ${details.Network}</p>
+                    <div class="text-sm space-y-2 mb-4">
+                        ${detailLine('fa-server', 'Alamat', `${details.Address}:${details.Port}`, 'text-blue-500')}
+                        ${detailLine(networkIcon, 'Jaringan', details.Network, 'text-purple-500')}
                         
                         ${details.Network === 'WS' ? `
-                        <p><strong class="text-gray-900 font-semibold"><i class="fas fa-heading mr-2 text-gray-400"></i> Host Header:</strong> ${escape(details.Host)}</p>
-                        <p><strong class="text-gray-900 font-semibold"><i class="fas fa-route mr-2 text-gray-400"></i> Path:</strong> ${escape(details.Path)}</p>
+                            ${detailLine('fa-heading', 'Host Header', escape(details.Host), 'text-gray-400')}
+                            ${detailLine('fa-route', 'Path', escape(details.Path), 'text-gray-400')}
                         ` : ''}
                         
                         ${isSecure ? `
-                        <p><strong class="text-gray-900 font-semibold"><i class="fas fa-fingerprint mr-2 text-green-500"></i> SNI:</strong> ${escape(details.SNI)}</p>
-                        <p><strong class="text-gray-900 font-semibold"><i class="fas fa-id-card-alt mr-2 text-green-500"></i> Fingerprint:</strong> ${escape(details.Fingerprint)}</p>
+                            ${detailLine('fa-fingerprint', 'SNI', escape(details.SNI), 'text-green-500')}
+                            ${detailLine('fa-id-card-alt', 'Fingerprint', escape(details.Fingerprint), 'text-green-500')}
                         ` : ''}
                     </div>
                     
