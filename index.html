@@ -122,6 +122,23 @@
 
     <script>
         // --- Core Converter Logic ---
+        
+        // Helper function for UTF-8 safe base64 encoding (fixes btoa error on non-Latin1 chars like emojis)
+        function toBase64Safe(str) {
+            try {
+                // Encode the string as URI component to handle UTF-8 bytes
+                const utf8Bytes = encodeURIComponent(str).replace(/%([0-9A-F]{2})/g,
+                    function(match, p1) {
+                        return String.fromCharCode(parseInt(p1, 16));
+                    });
+                return btoa(utf8Bytes);
+            } catch (e) {
+                console.error("UTF-8 to Base64 conversion failed:", e);
+                // Fallback or error indicator
+                return btoa("ERROR_ENCODING");
+            }
+        }
+
 
         function showMessage(message, type = 'error') {
             const box = document.getElementById('messageBox');
@@ -138,9 +155,17 @@
         // Function to copy a single URI (passed as base64 encoded string)
         function copySingleUri(b64Uri) {
             try {
-                const uri = atob(b64Uri); 
+                // Decoding logic to handle the safe Base64 encoding
+                const decodedBytes = atob(b64Uri);
+                const finalUri = decodeURIComponent(
+                    decodedBytes.split('').map(function(c) {
+                        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                    }).join('')
+                );
+
+
                 const tempTextArea = document.createElement('textarea');
-                tempTextArea.value = uri;
+                tempTextArea.value = finalUri;
                 document.body.appendChild(tempTextArea);
                 tempTextArea.select();
                 document.execCommand('copy');
@@ -270,6 +295,7 @@
                 .map(key => `${key}=${encodeURIComponent(params[key])}`)
                 .join('&');
 
+            // The final URI string potentially contains UTF-8 characters via URL encoding.
             const uri = `${uriScheme}://${idOrPass}@${address}:${port}?${paramString}#${encodedRemarks}`;
             
             return { uri, details, protocol };
@@ -280,8 +306,8 @@
             // Function to safely escape HTML content for display
             const escape = (text) => String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
             
-            // Encode the URI for safe passing to the inline JS function
-            const b64Uri = btoa(uri);
+            // Encode the URI for safe passing to the inline JS function (Fixes btoa error)
+            const b64Uri = toBase64Safe(uri);
             
             // Determine styling based on protocol and security
             const isVless = details.Protocol === 'VLESS';
