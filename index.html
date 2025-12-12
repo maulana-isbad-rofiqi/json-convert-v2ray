@@ -71,21 +71,16 @@
 <body>
 
     <div class="container-card rounded-3xl">
-        <h1 class="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 mb-2 text-center flex items-center justify-center">
+        <h1 class="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 mb-2 rotate-1 text-center flex items-center justify-center">
             <i class="fas fa-rocket mr-4"></i> V2Ray Super Generator
         </h1>
         <p class="text-center text-gray-700 mb-8 font-semibold">Ubah konfigurasi JSON Anda menjadi URI VLESS/Trojan yang indah dan terperinci.</p>
 
         <!-- Input Area -->
         <div class="mb-8">
-            <div class="flex justify-between items-center mb-3">
-                <label for="jsonInput" class="block text-xl font-extrabold text-gray-800">
-                    <i class="fas fa-file-code mr-2 text-purple-500"></i> Masukkan JSON Konfigurasi
-                </label>
-                <button id="openBotSettingsBtn" onclick="openBotSettingsModal()" class="bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold py-2 px-4 rounded-full transition duration-150 shadow-md transform hover:scale-105">
-                    <i class="fas fa-robot mr-1"></i> Set Bot
-                </button>
-            </div>
+            <label for="jsonInput" class="block text-xl font-extrabold text-gray-800 mb-3">
+                <i class="fas fa-file-code mr-2 text-purple-500"></i> Masukkan JSON Konfigurasi
+            </label>
             <textarea id="jsonInput" rows="10" 
                 class="w-full p-5 border-2 border-purple-300 rounded-2xl focus:ring-purple-500 focus:border-purple-500 text-base shadow-xl transition duration-300"
                 placeholder="Paste V2Ray configuration array here, e.g., [...]"></textarea>
@@ -121,170 +116,11 @@
                 </div>
                 <!-- Hidden textarea to hold raw URIs for "Copy All" functionality -->
                 <textarea id="allRawUris" class="hidden"></textarea>
-                <!-- Hidden textarea for Telegram formatted output -->
-                <textarea id="telegramOutput" class="hidden"></textarea>
-            </div>
-        </div>
-    </div>
-
-    <!-- Bot Settings Modal -->
-    <div id="botSettingsModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden z-50 overflow-y-auto">
-        <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl transform transition-all duration-300">
-                <h2 class="text-2xl font-bold text-gray-900 mb-4 flex items-center">
-                    <i class="fas fa-robot mr-3 text-indigo-600"></i> Pengaturan Bot Telegram
-                </h2>
-                
-                <p class="text-sm text-gray-600 mb-6">Masukkan Token Bot dan Chat ID Anda. Output konversi akan otomatis dikirim ke sini.</p>
-
-                <div class="mb-4">
-                    <label for="botTokenInput" class="block text-sm font-medium text-gray-700 mb-1">Token Bot</label>
-                    <input type="password" id="botTokenInput" placeholder="Contoh: 1234567890:ABC-DEF..."
-                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm">
-                </div>
-
-                <div class="mb-6">
-                    <label for="chatIdInput" class="block text-sm font-medium text-gray-700 mb-1">Chat ID</label>
-                    <input type="text" id="chatIdInput" placeholder="Contoh: 123456789 atau @username"
-                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm">
-                </div>
-                
-                <div id="botStatus" class="text-xs font-medium text-center p-2 rounded-lg hidden"></div>
-
-                <div class="flex justify-end space-x-3 mt-6">
-                    <button onclick="closeBotSettingsModal()"
-                            class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition duration-150">
-                        Batal
-                    </button>
-                    <button onclick="saveBotSettings()"
-                            class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-150 shadow-md">
-                        <i class="fas fa-save mr-1"></i> Simpan Pengaturan
-                    </button>
-                </div>
             </div>
         </div>
     </div>
 
     <script>
-        const STORAGE_KEY_TOKEN = 'telegramBotToken';
-        const STORAGE_KEY_CHAT_ID = 'telegramChatId';
-
-        // --- Bot Settings Modal Logic ---
-
-        function openBotSettingsModal() {
-            const modal = document.getElementById('botSettingsModal');
-            const tokenInput = document.getElementById('botTokenInput');
-            const chatIdInput = document.getElementById('chatIdInput');
-            const botStatus = document.getElementById('botStatus');
-
-            // Load saved values
-            tokenInput.value = localStorage.getItem(STORAGE_KEY_TOKEN) || '';
-            chatIdInput.value = localStorage.getItem(STORAGE_KEY_CHAT_ID) || '';
-            botStatus.classList.add('hidden');
-            
-            modal.classList.remove('hidden');
-        }
-
-        function closeBotSettingsModal() {
-            document.getElementById('botSettingsModal').classList.add('hidden');
-        }
-
-        function saveBotSettings() {
-            const token = document.getElementById('botTokenInput').value.trim();
-            const chatId = document.getElementById('chatIdInput').value.trim();
-            const botStatus = document.getElementById('botStatus');
-
-            if (token && chatId) {
-                localStorage.setItem(STORAGE_KEY_TOKEN, token);
-                localStorage.setItem(STORAGE_KEY_CHAT_ID, chatId);
-                
-                botStatus.textContent = "Pengaturan bot berhasil disimpan! Output akan dikirim otomatis.";
-                botStatus.classList.remove('hidden', 'bg-red-100', 'text-red-800', 'bg-yellow-100', 'text-yellow-800');
-                botStatus.classList.add('bg-green-100', 'text-green-800');
-                setTimeout(closeBotSettingsModal, 1500);
-
-            } else if (token || chatId) {
-                // Allows clearing one field by leaving it empty
-                localStorage.setItem(STORAGE_KEY_TOKEN, token);
-                localStorage.setItem(STORAGE_KEY_CHAT_ID, chatId);
-
-                botStatus.textContent = "Hanya satu kolom yang diisi. Harap isi keduanya atau biarkan kosong untuk menonaktifkan.";
-                botStatus.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800');
-                botStatus.classList.add('bg-yellow-100', 'text-yellow-800');
-            } else {
-                // Clear all settings
-                localStorage.removeItem(STORAGE_KEY_TOKEN);
-                localStorage.removeItem(STORAGE_KEY_CHAT_ID);
-
-                botStatus.textContent = "Pengaturan bot dinonaktifkan.";
-                botStatus.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'bg-yellow-100', 'text-yellow-800');
-                botStatus.classList.add('bg-red-100', 'text-red-800');
-                setTimeout(closeBotSettingsModal, 1500);
-            }
-        }
-
-        async function sendToTelegram(text) {
-            const token = localStorage.getItem(STORAGE_KEY_TOKEN);
-            const chatId = localStorage.getItem(STORAGE_KEY_CHAT_ID);
-
-            if (!token || !chatId || !text.trim()) {
-                // Not configured or empty content
-                return;
-            }
-
-            const telegramApiUrl = `https://api.telegram.org/bot${token}/sendMessage`;
-            const payload = {
-                chat_id: chatId,
-                text: text,
-                parse_mode: 'MarkdownV2',
-                disable_web_page_preview: true
-            };
-
-            const MAX_RETRIES = 5;
-            let delay = 1000; 
-
-            for (let i = 0; i < MAX_RETRIES; i++) {
-                try {
-                    const response = await fetch(telegramApiUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    
-                    const responseData = await response.json();
-
-                    if (response.ok) {
-                        showMessage("Konversi berhasil dan output berhasil dikirim ke Telegram!", 'success');
-                        return; // Success, exit loop
-                    }
-
-                    // Handle specific error responses
-                    if (response.status === 429) { // Too Many Requests (Rate Limiting)
-                        console.warn(`Telegram API Rate Limit encountered. Retrying in ${delay / 1000}s...`);
-                        await new Promise(resolve => setTimeout(resolve, delay));
-                        delay *= 2; // Exponential backoff
-                    } else if (response.status === 400) {
-                        const errorMsg = responseData.description || 'Bad Request';
-                        let userFeedback = `Gagal kirim ke Telegram: ${errorMsg}. Kemungkinan: Token Bot atau Chat ID salah/tidak valid, atau Bot belum di-start/diblokir.`;
-                        showMessage(userFeedback, 'error');
-                        console.error("Telegram API Error (400):", responseData);
-                        return; // Non-retryable error, exit
-                    } else {
-                        console.error("Telegram API Error:", responseData);
-                        showMessage(`Konversi berhasil, tetapi gagal mengirim ke Telegram: ${responseData.description || 'API Error'}`, 'error');
-                        return; // Non-retryable error, exit
-                    }
-                } catch (error) {
-                    console.error("Fetch Error during Telegram send:", error);
-                    // For network errors, retry with backoff
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                    delay *= 2;
-                }
-            }
-            showMessage("Konversi berhasil, tetapi gagal mengirim ke Telegram setelah beberapa kali coba (Timeout/Blocked).", 'error');
-        }
-
-
         // --- Core Converter Logic ---
 
         function showMessage(message, type = 'error') {
@@ -336,14 +172,6 @@
                 console.error('Copy all URIs failed:', err);
             }
         }
-
-        // Function to escape Markdown V2 special characters for Telegram text
-        function escapeMarkdownV2(text) {
-            if (!text) return '';
-            // Escape characters: _, *, [, ], (, ), ~, `, >, #, +, -, =, |, {, }, ., !
-            return text.replace(/([_*[\]()~`>#+\-=|{}.!])/g, '\\$1');
-        }
-
 
         // Function to extract details and encode URI for a single outbound object
         function getV2rayUri(config, outbound, remarks, outboundTag = null) {
@@ -517,40 +345,15 @@
             return html;
         }
 
-        // Function to create structured text output for Telegram
-        function createTelegramBlock(index, uri, details) {
-            const proto = details.Protocol;
-            const sec = details.Security;
-            const net = details.Network;
-            
-            let telegramText = `*${index}\\. ${escapeMarkdownV2(details.Remarks)}*\n`;
-            telegramText += `\`${proto} | ${details.Address}:${details.Port} | ${sec} | ${net}\`\n`;
-
-            if (net === 'WS') {
-                telegramText += `\\- Host: \`${escapeMarkdownV2(details.Host)}\`\n`;
-                if (details.Path !== '/') {
-                    telegramText += `\\- Path: \`${escapeMarkdownV2(details.Path)}\`\n`;
-                }
-            }
-            if (sec !== 'NONE' && details.SNI !== 'N/A') {
-                telegramText += `\\- SNI: \`${escapeMarkdownV2(details.SNI)}\`\n`;
-            }
-            
-            telegramText += `\n\`\`\`\n${escapeMarkdownV2(uri)}\n\`\`\`\n\n`;
-            return telegramText;
-        }
-
 
         // Main conversion function
         function convertJsonToV2ray() {
             const jsonInput = document.getElementById('jsonInput').value;
             const allContainer = document.getElementById('allOutputContainer');
             const allRaw = document.getElementById('allRawUris');
-            const telegramOutput = document.getElementById('telegramOutput');
 
             allContainer.innerHTML = '';
             allRaw.value = '';
-            telegramOutput.value = ''; // Clear telegram buffer
             document.getElementById('messageBox').classList.add('hidden');
 
             if (!jsonInput.trim()) {
@@ -569,7 +372,6 @@
 
                 let allHtml = '';
                 let allRawList = [];
-                let allTelegramText = '';
                 let allCount = 0;
 
                 configArray.forEach((config) => {
@@ -604,26 +406,15 @@
                         allCount++;
                         allHtml += createFormattedBlock(allCount, uri, details);
                         allRawList.push(uri);
-                        allTelegramText += createTelegramBlock(allCount, uri, details);
                     });
                 });
 
                 // Update Containers and Raw URI list
                 allContainer.innerHTML = allHtml || '<p class="text-center text-gray-500 p-8">Tidak ditemukan konfigurasi VLESS atau Trojan yang valid.</p>';
                 allRaw.value = allRawList.join('\n');
-                telegramOutput.value = allTelegramText;
 
                 if (allCount > 0) {
-                    // Telegram Send Logic
-                    const token = localStorage.getItem(STORAGE_KEY_TOKEN);
-                    const chatId = localStorage.getItem(STORAGE_KEY_CHAT_ID);
-                    
-                    if (token && chatId) {
-                        // Send message and handle success/failure message inside sendToTelegram
-                        sendToTelegram(`*-- Hasil Konversi V2Ray (${allCount} Akun) --*\n\n${allTelegramText}`);
-                    } else {
-                        showMessage(`Konversi berhasil! Ditemukan ${allCount} URI (VLESS & Trojan). Pengaturan bot tidak ditemukan/dinonaktifkan.`, 'success');
-                    }
+                    showMessage(`Konversi berhasil! Ditemukan ${allCount} URI (VLESS & Trojan).`, 'success');
                 } else {
                     showMessage("Tidak ditemukan konfigurasi VLESS atau Trojan yang valid di dalam JSON.", 'error');
                 }
