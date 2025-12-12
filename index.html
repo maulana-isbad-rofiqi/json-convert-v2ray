@@ -9,6 +9,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <!-- Font Awesome for modern icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- jsqr library for QR code scanning -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -66,6 +68,11 @@
         .detail-value {
             word-break: break-word; /* Ensures long domains wrap */
         }
+        #qrisResultOutput {
+            min-height: 80px;
+            background-color: #e2f0e2;
+            border: 1px dashed #4CAF50;
+        }
     </style>
 </head>
 <body>
@@ -76,7 +83,25 @@
         </h1>
         <p class="text-center text-gray-700 mb-8 font-semibold">Ubah konfigurasi JSON Anda menjadi URI VLESS/Trojan yang indah dan terperinci.</p>
 
-        <!-- Input Area -->
+        <!-- QRIS Input Area -->
+        <div class="mb-8 p-6 bg-yellow-50/70 border-2 border-yellow-300 rounded-2xl shadow-inner">
+            <label class="block text-xl font-extrabold text-gray-800 mb-3">
+                <i class="fas fa-qrcode mr-2 text-yellow-600"></i> Pindai QR Code
+            </label>
+            <input type="file" id="qrisFileInput" accept="image/*" onchange="handleQrisImage(event)" 
+                   class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-yellow-100 file:text-yellow-700 hover:file:bg-yellow-200"/>
+            <p class="text-sm text-gray-500 mt-2">Unggah gambar QR Code (seperti QRIS, atau V2Ray Subscription QR) untuk memindai kontennya.</p>
+            
+            <div class="mt-4">
+                <h4 class="text-md font-semibold text-gray-700 mb-1">Hasil Teks QR:</h4>
+                <textarea id="qrisResultOutput" readonly class="w-full p-3 rounded-lg text-sm font-mono text-green-800"></textarea>
+                <button id="copyQrisBtn" onclick="copyQrisResult()" class="mt-2 w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-xl transition duration-150 shadow-md hidden">
+                    <i class="fas fa-copy mr-2"></i> Salin Hasil QR
+                </button>
+            </div>
+        </div>
+
+        <!-- JSON Input Area -->
         <div class="mb-8">
             <label for="jsonInput" class="block text-xl font-extrabold text-gray-800 mb-3">
                 <i class="fas fa-file-code mr-2 text-purple-500"></i> Masukkan JSON Konfigurasi
@@ -119,10 +144,13 @@
             </div>
         </div>
     </div>
+    
+    <!-- Canvas for QR scanning (Hidden) -->
+    <canvas id="qrCanvas" class="hidden"></canvas>
 
     <script>
-        // --- Core Converter Logic ---
-        
+        // --- Utility Functions ---
+
         // Helper function for UTF-8 safe base64 encoding (fixes btoa error on non-Latin1 chars like emojis)
         function toBase64Safe(str) {
             try {
@@ -134,7 +162,6 @@
                 return btoa(utf8Bytes);
             } catch (e) {
                 console.error("UTF-8 to Base64 conversion failed:", e);
-                // Fallback or error indicator
                 return btoa("ERROR_ENCODING");
             }
         }
@@ -151,6 +178,81 @@
                 box.classList.add('bg-green-100', 'text-green-800', 'border-green-400');
             }
         }
+
+        // --- QR Code Scanner Logic ---
+
+        function copyQrisResult() {
+            const output = document.getElementById('qrisResultOutput');
+            if (!output.value) {
+                showMessage("Tidak ada hasil QR untuk disalin.", 'error');
+                return;
+            }
+            try {
+                const tempTextArea = document.createElement('textarea');
+                tempTextArea.value = output.value;
+                document.body.appendChild(tempTextArea);
+                tempTextArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(tempTextArea);
+                showMessage("Hasil QR Code berhasil disalin!", 'success');
+            } catch (err) {
+                showMessage("Gagal menyalin hasil QR.", 'error');
+            }
+        }
+
+        function handleQrisImage(event) {
+            const file = event.target.files[0];
+            const output = document.getElementById('qrisResultOutput');
+            const copyBtn = document.getElementById('copyQrisBtn');
+            output.value = "Memproses gambar...";
+            copyBtn.classList.add('hidden');
+
+            if (!file) {
+                output.value = "";
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    scanQrisFromImage(img);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function scanQrisFromImage(img) {
+            const canvas = document.getElementById('qrCanvas');
+            const ctx = canvas.getContext('2d');
+            const output = document.getElementById('qrisResultOutput');
+            const copyBtn = document.getElementById('copyQrisBtn');
+
+            // Set canvas size to match image size
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0, img.width, img.height);
+
+            // Get image data
+            const imageData = ctx.getImageData(0, 0, img.width, img.height);
+            
+            // Scan for QR code using jsqr
+            const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+            if (code) {
+                output.value = code.data;
+                copyBtn.classList.remove('hidden');
+                showMessage("QR Code berhasil dipindai!", 'success');
+            } else {
+                output.value = "Tidak ditemukan kode QR yang valid dalam gambar.";
+                copyBtn.classList.add('hidden');
+                showMessage("Gagal memindai QR Code.", 'error');
+            }
+        }
+
+
+        // --- V2Ray URI Converter Logic (Maintained from previous, fixed version) ---
 
         // Function to copy a single URI (passed as base64 encoded string)
         function copySingleUri(b64Uri) {
